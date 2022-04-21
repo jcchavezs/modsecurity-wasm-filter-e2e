@@ -1,0 +1,3 @@
+[submodule "modsecurity-wasm-filter"]
+	path = modsecurity-wasm-filter
+	url = git@github.com:intel/modsecurity-wasm-filter.git
