@@ -13,7 +13,7 @@ You'll find the WASM plugin in `./bin/modsecurity-filter.wasm`
 ## Run E2E
 
 ```bash
-docker run --rm -d jcchavezs/httpmole -p 8000
-func-e run -c envoy-config.yaml -l info
+docker run --rm -d -p 8000:10080 jcchavezs/httpmole
+func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:trace
 curl -i localhost:8001/admin
 ```
