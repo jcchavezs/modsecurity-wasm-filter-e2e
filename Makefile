@@ -1,7 +1,9 @@
 build-wasm-plugin:
-	cd modsecurity-wasm-filter/wasmplugin; sed -i 's/envoy-wasm-modsecurity-dynamic/envoy-wasm-modsecurity/' Dockerfile; sed -i 's/envoy-wasm-modsecurity-dynamic/envoy-wasm-modsecurity/' Makefile
-	cd modsecurity-wasm-filter/wasmplugin; docker build -t jcchavezs/modsecurity-wasm-filter:latest -f Dockerfile .
-	cd modsecurity-wasm-filter/wasmplugin; sed -i 's/envoy-wasm-modsecurity/envoy-wasm-modsecurity-dynamic/' Dockerfile; sed -i 's/envoy-wasm-modsecurity/envoy-wasm-modsecurity-dynamic/' Makefile
+	sed -i 's/envoy-wasm-modsecurity-dynamic/envoy-wasm-modsecurity/' modsecurity-wasm-filter/wasmplugin/Dockerfile
+	sed -i 's/envoy-wasm-modsecurity-dynamic/envoy-wasm-modsecurity/' modsecurity-wasm-filter/wasmplugin/Makefile
+	docker build -t jcchavezs/modsecurity-wasm-filter:latest -f modsecurity-wasm-filter/wasmplugin/Dockerfile modsecurity-wasm-filter/wasmplugin
+	# Go back to old state
+	cd modsecurity-wasm-filter/wasmplugin; git checkout .
 
 extract-wasm-plugin:
 	docker rm -f modsecurity-wasm-filter-extract || true
