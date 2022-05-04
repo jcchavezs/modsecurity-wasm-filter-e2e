@@ -1,0 +1,44 @@
+name: "build"
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Install latest `git`"
+        run: |
+          apt purge git -y
+          add-apt-repository ppa:git-core/ppa -y
+          # apt update fails to fetch some repo due to cert failure. Skip them.
+          apt update || true; apt install -y --no-install-recommends \
+              git \
+          && apt clean \
+          && rm -rf /var/lib/apt/lists/*
+
+      - name: "Checkout"
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: "Build wasm module"
+        shell: bash
+        run: make build-wasm-plugin extract-wasm-plugin
+
+      - name: "Install func-e"
+        shell: bash
+        run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
+
+      - name: "Spin up server"
+        shell: bash
+        run: docker run --rm -d -p 8000:10080 jcchavezs/httpmole -response-status=200 &
+
+      - name: "Spin up proxy"
+        shell: bash
+        run: func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:debug &
+
+      - name: "Run tests"
+        shell: bash
+        run: |
+          chmod +x tests.sh
+          ./tests.sh
