@@ -2,6 +2,7 @@
 
 step=1
 total_steps=3
+max_retries=10
 application_url="http://localhost:8000"
 envoy_url_unfiltered="http://localhost:8001/home"
 envoy_url_filtered="http://localhost:8001/admin"
@@ -12,6 +13,12 @@ status_code="000"
 while [[ "$status_code" -eq "000" ]]; do
   status_code=$(curl --write-out "%{http_code}" --silent --output /dev/null $application_url)
   sleep 1
+  echo -ne "[Wait] Waiting for response from $application_url. Timeout: ${max_retries}s   \r"
+  ((max_retries-=1))
+  if [[ "$max_retries" -eq 0 ]] ; then
+    echo "[Fail] Timeout waiting for response from $application_url, make sure the server is running."
+    exit 1
+  fi
 done
 echo "[Ok] Got status code $status_code, expected 200. Ready to start."
 

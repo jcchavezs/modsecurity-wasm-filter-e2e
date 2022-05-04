@@ -1,7 +1,6 @@
 static_resources:
   listeners:
-  - name: listener_name
-    address:
+  - address:
       socket_address:
         address: 0.0.0.0
         port_value: 8001
@@ -34,7 +33,7 @@ static_resources:
                   "@type": "type.googleapis.com/google.protobuf.StringValue"
                   value: |
                     {
-                      "rules":"SecDebugLogLevel 5\nSecDebugLog modsec.log\nSecRuleEngine On\nSecRule REQUEST_URI \"@streqr /admin\" \"id:101,phase:1,t:lowercase,deny\""
+                      "rules":"SecDebugLogLevel 5 \nSecDebugLog modsec.log \nSecRuleEngine On \nSecRule REQUEST_URI \"@streqr /admin\" \"id:101,phase:1,t:lowercase,deny\""
                     }
                 vm_config:
                   runtime: "envoy.wasm.runtime.v8"
@@ -59,4 +58,3 @@ static_resources:
               socket_address:
                 address: 127.0.0.1
                 port_value: 8000
-
