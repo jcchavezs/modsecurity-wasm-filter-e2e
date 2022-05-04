@@ -8,12 +8,12 @@ envoy_url_filtered="http://localhost:8001/admin"
 
 # Testing if the server is up
 echo "[$step/$total_steps] Testing application reachability"
-status_code=$(curl --write-out "%{http_code}" --silent --output /dev/null $application_url)
-if [[ "$status_code" -ne 200 ]] ; then
-  echo "[Fail] Unexpected response with code $status_code from $application_url"
-  exit 1
-fi
-echo "[Ok] Got status code $status_code, expected 200"
+status_code="000"
+while [[ "$status_code" -eq "000" ]]; do
+  status_code=$(curl --write-out "%{http_code}" --silent --output /dev/null $application_url)
+  sleep 1
+done
+echo "[Ok] Got status code $status_code, expected 200. Ready to start."
 
 # Testing envoy container reachability with an unfiltered request
 ((step+=1))
