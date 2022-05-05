@@ -9,24 +9,6 @@ on:
       - "LICENSE"
 
 jobs:
-  install-tools:
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Install latest `git`"
-        shell: bash
-        run: |
-          sudo apt purge git -y
-          sudo add-apt-repository ppa:git-core/ppa -y
-          # apt update fails to fetch some repo due to cert failure. Skip them.
-          sudo apt update || true; sudo apt install -y --no-install-recommends \
-              git \
-          && sudo apt clean \
-          && sudo rm -rf /var/lib/apt/lists/*
-
-      - name: "Install func-e"
-        shell: bash
-        run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
-
   build-wasm-module:
     runs-on: ubuntu-latest
     needs: install-tools
@@ -39,11 +21,33 @@ jobs:
       - name: "Build wasm module"
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
-  
+
+      - name: "Cache generated .wasm file"  
+        uses: actions/cache@v2
+        with:
+          path: |
+            bin/
+          key: wasm-module-build # -${{ github.sha }}
+
   test:
     runs-on: ubuntu-latest
     needs: build-wasm-module
     steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+        # no need of recursion, .wasm file is already built and cached
+
+      - name: "Install func-e"
+        shell: bash
+        run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
+      
+      - name: "Restore the wasm files cache"
+        uses: actions/cache@v2
+        with:
+          path: |
+            bin/
+          key: wasm-module-build # -${{ github.sha }}
+
       - name: "Spin up server and envoy"
         shell: bash
         run: |
@@ -53,5 +57,4 @@ jobs:
       - name: "Run tests"
         shell: bash
         run: |
-          chmod +x tests.sh
           ./tests.sh
