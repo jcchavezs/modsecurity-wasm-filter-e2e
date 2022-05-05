@@ -8,9 +8,6 @@ on:
       - "**/*.md"
       - "LICENSE"
 
-env:
-  CACHE_MODSEC_WASM_FILTER_HASH: ""
-
 jobs:
   build-wasm-module:
     runs-on: ubuntu-latest
@@ -21,7 +18,8 @@ jobs:
           submodules: recursive
 
       - name: "Retriving modsecurity-wasm-filter hash"
-        # cache key based on any updates done at the modesecurity-wasm-filter repo
+        # cache's key based on the modesecurity-wasm-filter repo, it should lead to
+        # rebuild the wasm module only if there are updates on that repo.
         run: echo "CACHE_MODSEC_WASM_FILTER_HASH=${{ hashFiles('modsecurity-wasm-filter/**') }}" >> $GITHUB_ENV
         
       - name: "Attempts to restore cache"
