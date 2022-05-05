@@ -18,7 +18,8 @@ jobs:
           submodules: recursive
 
       - name: "Attempts to restore cache"
-        uses: actions/cache@v2
+        id: cache-wasm-bin
+        uses: actions/cache@v3
         with:
           path: |
             bin/
@@ -26,13 +27,13 @@ jobs:
 
 
       - name: "Build wasm module"
-        if: steps.cache-primes.outputs.cache-hit != 'true'
+        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
 
       - name: "Cache generated .wasm file"  
-        if: steps.cache-primes.outputs.cache-hit != 'true'
-        uses: actions/cache@v2
+        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
+        uses: actions/cache@v3
         with:
           path: |
             bin/
@@ -54,7 +55,7 @@ jobs:
         run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
       
       - name: "Restore the wasm files cache"
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: |
             bin/
