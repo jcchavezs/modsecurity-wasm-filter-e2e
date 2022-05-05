@@ -22,7 +22,7 @@ jobs:
 
       - name: "Retriving modsecurity-wasm-filter hash"
         # cache key based on any updates done at the modesecurity-wasm-filter repo
-        run: $CACHE_MODSEC_WASM_FILTER_HASH=${{ hashFiles('modsecurity-wasm-filter/**') }}
+        run: $CACHE_MODSEC_WASM_FILTER_HASH="${{ hashFiles('modsecurity-wasm-filter/**') }}"
 
       - name: "Attempts to restore cache"
         id: cache-wasm-bin
