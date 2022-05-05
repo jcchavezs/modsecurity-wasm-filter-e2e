@@ -1,12 +1,12 @@
-name: "build"
-
+name: test
 on:
   push:
     branches:
-      - '**'
+      - master
     paths-ignore:
       - "**/*.md"
       - "LICENSE"
+  pull_request:
 
 jobs:
   build-wasm-module:
@@ -18,7 +18,7 @@ jobs:
           submodules: recursive
 
       - name: "Retriving modsecurity-wasm-filter hash"
-        # cache's key based on the modesecurity-wasm-filter repo, it should lead to
+        # Cache's key based on the modesecurity-wasm-filter repo, it should lead to
         # rebuild the wasm module only if there are updates on that repo.
         run: echo "CACHE_MODSEC_WASM_FILTER_HASH=${{ hashFiles('modsecurity-wasm-filter/**') }}" >> $GITHUB_ENV
         
@@ -42,7 +42,6 @@ jobs:
           path: |
             bin/
           key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
-          # each commit: -${{ github.sha }}
 
   e2e-tests:
     runs-on: ubuntu-latest
