@@ -17,11 +17,21 @@ jobs:
         with:
           submodules: recursive
 
+      - name: "Attempts to restore cache"
+        uses: actions/cache@v2
+        with:
+          path: |
+            bin/
+          key: wasm-module-build
+
+
       - name: "Build wasm module"
+        if: steps.cache-primes.outputs.cache-hit != 'true'
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
 
       - name: "Cache generated .wasm file"  
+        if: steps.cache-primes.outputs.cache-hit != 'true'
         uses: actions/cache@v2
         with:
           path: |
