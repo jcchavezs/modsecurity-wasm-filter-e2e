@@ -2,7 +2,7 @@
 
 step=1
 total_steps=3
-max_retries=10
+max_retries=10 #seconds for the server reachability timeout
 application_url="http://localhost:8000"
 envoy_url_unfiltered="http://localhost:8001/home"
 envoy_url_filtered="http://localhost:8001/admin"
@@ -20,7 +20,7 @@ while [[ "$status_code" -eq "000" ]]; do
     exit 1
   fi
 done
-echo "[Ok] Got status code $status_code, expected 200. Ready to start."
+echo -e "\n[Ok] Got status code $status_code, expected 200. Ready to start."
 
 # Testing envoy container reachability with an unfiltered request
 ((step+=1))
