@@ -1,9 +1,13 @@
 name: "build"
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - "**/*.md"
+      - "LICENSE"
 
 jobs:
-  build:
+  install-tools:
     runs-on: ubuntu-latest
     steps:
       - name: "Install latest `git`"
@@ -17,6 +21,13 @@ jobs:
           && sudo apt clean \
           && sudo rm -rf /var/lib/apt/lists/*
 
+      - name: "Install func-e"
+        shell: bash
+        run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
+
+  build-wasm-module:
+    runs-on: ubuntu-latest
+    needs: install-tools
       - name: "Checkout"
         uses: actions/checkout@v2
         with:
@@ -25,11 +36,10 @@ jobs:
       - name: "Build wasm module"
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
-
-      - name: "Install func-e"
-        shell: bash
-        run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
-
+  
+  test:
+    runs-on: ubuntu-latest
+    needs: build-wasm-module
       - name: "Spin up server"
         shell: bash
         run: docker run --rm -d -p 8000:10080 jcchavezs/httpmole -response-status=200 &
