@@ -26,9 +26,12 @@ jobs:
         with:
           path: |
             bin/
-          key: wasm-module-build # -${{ github.sha }}
+          key: wasm-module-build
+          # each commit: -${{ github.sha }}
 
-  test:
+
+
+  e2e-tests:
     runs-on: ubuntu-latest
     needs: build-wasm-module
     steps:
@@ -45,12 +48,12 @@ jobs:
         with:
           path: |
             bin/
-          key: wasm-module-build # -${{ github.sha }}
+          key: wasm-module-build
 
       - name: "Spin up server and envoy"
         shell: bash
         run: |
-          docker run --rm -d -p 8000:10080 jcchavezs/httpmole -response-status=200 &
+          docker run --rm -d -p 8000:10080 jcchavezs/httpmole -response-status=403 &
           func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:debug &
 
       - name: "Run tests"
