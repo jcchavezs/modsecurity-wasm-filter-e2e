@@ -118,6 +118,7 @@ jobs:
           curl -sL https://istio.io/downloadIstioctl | sh -
 
       - name: Create Kind cluster
+      # kubectl is already installed on the Github Ubuntu worker
         run: |
           kind create cluster --config=./kind-istio/kind-config.yaml
           kubectl scale deployment --replicas 1 coredns --namespace kube-system
@@ -127,12 +128,42 @@ jobs:
           yes | $HOME/.istioctl/bin/istioctl install --set profile=default
           kubectl label namespace default istio-injection=enabled --overwrite
 
-      - name: Run some sanity checks
-        # kubectl is already installed on the Github Ubuntu worker
+      - name: Install metallb
+        run: |   
+          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+          kubectl apply -f ./kind-istio/metallb-configmap.yaml
+
+      - name: Deploy nginx and Gateway
+        run: |   
+          kubectl apply -f ./kind-istio/workload/deploy-nginx.yaml
+          kubectl apply -f ./kind-istio/workload/istio-gateway.yaml
+
+      - name: Run sanity checks
         run: |
-          kubectl get nodes -o wide
-          kubectl get pods --all-namespaces -o wide
-          kubectl get services --all-namespaces -o wide
+          sleep 20
+          echo "post sleep"
+          kubectl get pods -o wide
+          curl -v "http://172.18.0.100/nginx"
+          kubectl get svc -o wide -n istio-system
+          curl -v "http://172.18.0.100/admin"
 
+      - name: Deploy WASM-WAF
+      # keep the GHCR owner a variable. The name must be lowercase.
+        env:
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+        run: |
+          export GITHUB_REPOSITORY_OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "GLOBAL_OWNER_LC=$GITHUB_REPOSITORY_OWNER_LC" >> $GITHUB_ENV
+          sed -i "s/{{GITHUB_REPOSITORY_OWNER}}/$GITHUB_REPOSITORY_OWNER_LC/" kind-istio/workload/deploy-waf.yaml  
+          kubectl apply -f kind-istio/workload/deploy-waf.yaml
 
-
+      - name: Run WAF sanity checks
+        run: |
+          sleep 20
+          echo "post WAF sleep"
+          kubectl get pods -o wide
+          kubectl logs deployment/nginx-v1 -c istio-proxy
+          curl -v "http://172.18.0.100/nginx"
+          kubectl get svc -o wide -n istio-system
+          curl -v "http://172.18.0.100/admin"
