@@ -133,10 +133,13 @@ jobs:
           kubectl scale deployment --replicas 1 coredns --namespace kube-system
 
       - name: Install Istio
+        # install istio default (no egress)
+        # adds label to inject the sidecars inside default ns
         run: |   
           yes | $HOME/.istioctl/bin/istioctl install --set profile=default
           kubectl label namespace default istio-injection=enabled --overwrite
 
+      # metallb will provide an EXTERNAL_IP (taken from metallb-configmap) to the ingress gateway
       - name: Install metallb
         run: |   
           kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
@@ -151,9 +154,13 @@ jobs:
       - name: Build and Upload WASM-WAF to GHCR
         env:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+      
+      # TODO: Do not push it everytime, but just after the build
       # Built it's compact variant and push it to ghcr.io
       # See https://github.com/tetratelabs/proxy-wasm-go-sdk/blob/main/Makefile#L62
       # See https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md
+      
+      #TODO: Consider login to GHCR via: https://github.com/docker/login-action#github-container-registry
         run: |
           export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           echo "GLOBAL_OWNER_LC=$GITHUB_REPOSITORY_OWNER_LC" >> $GITHUB_ENV
@@ -162,8 +169,7 @@ jobs:
           docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
 
       - name: Deploy WASM-WAF
-      # keep the GHCR owner as a variable. The name must be lowercase.
-      # Save it globally GLOBAL_OWNER_LC
+        # sed replaces the {{GITHUB_REPOSITORY_OWNER}} placeholder with the current repository owner
         run: |
           export GITHUB_REPOSITORY_OWNER_LC=$(echo "${{ env.GLOBAL_OWNER_LC }}")
           sed -i "s/{{GITHUB_REPOSITORY_OWNER}}/$GITHUB_REPOSITORY_OWNER_LC/" kind-istio/workload/deploy-waf.yaml  
@@ -180,12 +186,16 @@ jobs:
           curl -v "http://172.18.0.100/admin"
 
       - name: "Run waf on istio tests"
+      # the IP is the one provided by metallb, for more flexibility it may be retrieved via:
+      # echo $(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}
         env:
           APPLICATION_URL: "http://172.18.0.100/nginx"
           REQ_UNFILTERED: "http://172.18.0.100/nginx"
           REQ_FILTERED: "http://172.18.0.100/admin"
         shell: bash
         # TODO: after removing the sanity checks, here must be added a script that waits until everything is read
+        # ready_counter=$(kubectl get pods -n metallb-system | grep -ow '1/1' | wc -l)
+        # wait until ready_counter is equal to 2
         run: |
           ./tests.sh
 
