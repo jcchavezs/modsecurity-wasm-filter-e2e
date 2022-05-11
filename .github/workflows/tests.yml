@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
 
-  e2e-test:
+  e2e-local-test:
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -55,12 +55,12 @@ jobs:
             build/
           key: wasm-module-build-${{ github.sha }}
 
-      - name: "Spin up server and envoy"
+      - name: "Spin up local server and envoy"
         shell: bash
         run: |
           func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:debug &
 
-      - name: "Run tests"
+      - name: "Run local tests"
         shell: bash
         run: |
           ./tests.sh
@@ -90,3 +90,49 @@ jobs:
       - name: "Push WASM plugin"
         shell: bash
         run: make push-wasm-plugin
+  e2e-istio-tests:
+    runs-on: ubuntu-latest
+    needs: build-wasm-module
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+      
+      - name: "Restore the wasm files cache"
+        uses: actions/cache@v3
+        with:
+          path: |
+            bin/
+          key: wasm-module-build-${{ hashFiles('modsecurity-wasm-filter/**') }}
+      
+      - name: Install Kind
+        shell: bash
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.12.0/kind-linux-amd64
+          sudo mv ./kind /usr/bin/kind 
+      
+      - name: Install istioctl
+        shell: bash
+        run: |
+          curl -sL https://istio.io/downloadIstioctl | sh -
+
+      - name: Create Kind cluster
+        run: |
+          kind create cluster --config=./kind-istio/kind-config.yaml
+          kubectl scale deployment --replicas 1 coredns --namespace kube-system
+
+      - name: Install Istio
+        run: |   
+          yes | $HOME/.istioctl/bin/istioctl install --set profile=default
+          kubectl label namespace default istio-injection=enabled --overwrite
+
+      - name: Run some sanity checks
+        # kubectl is already installed on the Github Ubuntu worker
+        run: |
+          kubectl get nodes -o wide
+          kubectl get pods --all-namespaces -o wide
+          kubectl get services --all-namespaces -o wide
+
+
+
