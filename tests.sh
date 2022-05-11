@@ -1,11 +1,12 @@
 #!/bin/bash
 
+# TODO: if env variables are a valid alternative, local ones can be removed
 step=1
 total_steps=3
 max_retries=10 #seconds for the server reachability timeout
-health_url="http://localhost:8001"
-envoy_url_unfiltered="http://localhost:8001/home"
-envoy_url_filtered="http://localhost:8001/admin"
+health_url=$HEALTH_URL
+envoy_url_unfiltered=$REQ_UNFILTERED
+envoy_url_filtered=$REQ_FILTERED
 
 # Testing if the server is up
 echo "[$step/$total_steps] Testing application reachability"

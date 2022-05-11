@@ -61,6 +61,10 @@ jobs:
           func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:debug &
 
       - name: "Run local tests"
+        env:
+          APPLICATION_URL: "http://localhost:8000"
+          REQ_UNFILTERED: "http://localhost:8001/home"
+          REQ_FILTERED: "http://localhost:8001/admin"
         shell: bash
         run: |
           ./tests.sh
@@ -90,8 +94,13 @@ jobs:
       - name: "Push WASM plugin"
         shell: bash
         run: make push-wasm-plugin
+
   e2e-istio-tests:
     runs-on: ubuntu-latest
+    # write permission needed to upload the wasm to ghcr
+    # Write permission must be also added via Package settings -> Manage Actions access
+    permissions:
+      packages: write 
     needs: build-wasm-module
     steps:
       - name: "Checkout"
@@ -139,26 +148,28 @@ jobs:
           kubectl apply -f ./kind-istio/workload/deploy-nginx.yaml
           kubectl apply -f ./kind-istio/workload/istio-gateway.yaml
 
-      - name: Run sanity checks
-        run: |
-          sleep 20
-          echo "post sleep"
-          kubectl get pods -o wide
-          curl -v "http://172.18.0.100/nginx"
-          kubectl get svc -o wide -n istio-system
-          curl -v "http://172.18.0.100/admin"
-
-      - name: Deploy WASM-WAF
-      # keep the GHCR owner a variable. The name must be lowercase.
+      - name: Build and Upload WASM-WAF to GHCR
         env:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+      # Built it's compact variant and push it to ghcr.io
+      # See https://github.com/tetratelabs/proxy-wasm-go-sdk/blob/main/Makefile#L62
+      # See https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md
         run: |
-          export GITHUB_REPOSITORY_OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           echo "GLOBAL_OWNER_LC=$GITHUB_REPOSITORY_OWNER_LC" >> $GITHUB_ENV
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_REPOSITORY_OWNER --password-stdin
+          docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./bin/modsecurity-filter.wasm
+          docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
+
+      - name: Deploy WASM-WAF
+      # keep the GHCR owner as a variable. The name must be lowercase.
+      # Save it globally GLOBAL_OWNER_LC
+        run: |
+          export GITHUB_REPOSITORY_OWNER_LC=$(echo "${{ env.GLOBAL_OWNER_LC }}")
           sed -i "s/{{GITHUB_REPOSITORY_OWNER}}/$GITHUB_REPOSITORY_OWNER_LC/" kind-istio/workload/deploy-waf.yaml  
           kubectl apply -f kind-istio/workload/deploy-waf.yaml
 
-      - name: Run WAF sanity checks
+      - name: Run sanity checks
         run: |
           sleep 20
           echo "post WAF sleep"
@@ -167,3 +178,14 @@ jobs:
           curl -v "http://172.18.0.100/nginx"
           kubectl get svc -o wide -n istio-system
           curl -v "http://172.18.0.100/admin"
+
+      - name: "Run waf on istio tests"
+        env:
+          APPLICATION_URL: "http://172.18.0.100/nginx"
+          REQ_UNFILTERED: "http://172.18.0.100/nginx"
+          REQ_FILTERED: "http://172.18.0.100/admin"
+        shell: bash
+        # TODO: after removing the sanity checks, here must be added a script that waits until everything is read
+        run: |
+          ./tests.sh
+
