@@ -11,6 +11,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # write permission needed to upload the wasm to ghcr
+    # Write permission must be also added via Package settings -> Manage Actions access
+    permissions:
+      packages: write 
     steps:
       - name: "Checkout"
         uses: actions/checkout@v3
@@ -29,7 +33,28 @@ jobs:
         with:
           path: |
             build/
-          key: wasm-module-build-${{ github.sha }}
+          key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
+      
+      # https://github.com/docker/login-action#github-container-registry
+      - name: Login to GitHub Container Registry
+        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload of WASM-WAF to GHCR
+        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
+        env:
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+      # Built it's compact variant and push it to ghcr.io
+      # See https://github.com/tetratelabs/proxy-wasm-go-sdk/blob/main/Makefile#L62
+      # See https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md    
+        run: |
+          export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
+          docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./bin/modsecurity-filter.wasm
+          docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
 
       - name: "Build wasm module"
         shell: bash
@@ -99,23 +124,14 @@ jobs:
 # and test it in front of a nginx dummy application.
   e2e-istio-tests:
     runs-on: ubuntu-latest
-    # write permission needed to upload the wasm to ghcr
-    # Write permission must be also added via Package settings -> Manage Actions access
     permissions:
-      packages: write 
+      packages: read 
     needs: build-wasm-module
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
         with:
           submodules: recursive
-      
-      - name: "Restore the wasm files cache"
-        uses: actions/cache@v3
-        with:
-          path: |
-            bin/
-          key: wasm-module-build-${{ hashFiles('modsecurity-wasm-filter/**') }}
       
       - name: Install Kind
         shell: bash
@@ -153,27 +169,12 @@ jobs:
           kubectl apply -f ./kind-istio/workload/deploy-nginx.yaml
           kubectl apply -f ./kind-istio/workload/istio-gateway.yaml
 
-      - name: Upload of WASM-WAF to GHCR
+      - name: Deploy WASM-WAF
         env:
           GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-      
-      # TODO: Do not push it everytime, but just after the build
-      # Built it's compact variant and push it to ghcr.io
-      # See https://github.com/tetratelabs/proxy-wasm-go-sdk/blob/main/Makefile#L62
-      # See https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md
-      
-      #TODO: Consider login to GHCR via: https://github.com/docker/login-action#github-container-registry
-        run: |
-          export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          echo "GLOBAL_OWNER_LC=$GITHUB_REPOSITORY_OWNER_LC" >> $GITHUB_ENV
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $GITHUB_REPOSITORY_OWNER --password-stdin
-          docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./bin/modsecurity-filter.wasm
-          docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
-
-      - name: Deploy WASM-WAF
         # sed replaces the {{GITHUB_REPOSITORY_OWNER}} placeholder with the current repository owner (mandatory lower case)
         run: |
-          export GITHUB_REPOSITORY_OWNER_LC=$(echo "${{ env.GLOBAL_OWNER_LC }}")
+          export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           sed -i "s/{{GITHUB_REPOSITORY_OWNER}}/$GITHUB_REPOSITORY_OWNER_LC/" kind-istio/workload/deploy-waf.yaml  
           kubectl apply -f kind-istio/workload/deploy-waf.yaml
 
@@ -188,4 +189,3 @@ jobs:
         run: |
           ./warmup-tests.sh
           ./tests.sh
-
