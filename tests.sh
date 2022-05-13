@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# TODO: if env variables are a valid alternative, local ones can be removed
+# if env variables are a valid alternative, local ones can be removed
 step=1
 total_steps=3
 max_retries=10 #seconds for the server reachability timeout
