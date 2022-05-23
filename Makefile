@@ -8,7 +8,7 @@ build-wasm-plugin:
 extract-wasm-plugin:
 	docker rm -f modsecurity-wasm-filter-extract || true
 	@docker create --rm --name modsecurity-wasm-filter-extract jcchavezs/modsecurity-wasm-filter:latest /plugin.wasm
-	@mkdir -p ./bin
-	@docker cp modsecurity-wasm-filter-extract:/plugin.wasm ./bin/modsecurity-filter.wasm
+	@mkdir ./build
+	@docker cp modsecurity-wasm-filter-extract:/plugin.wasm ./build/modsecurity-filter.wasm
 	@docker rm -f modsecurity-wasm-filter-extract
 
