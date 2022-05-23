@@ -25,7 +25,7 @@ static_resources:
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
                       config:
-                        name: "my_plugin"
+                        name: "modsecurity-filter"
                         root_id: ""
                         configuration:
                           "@type": "type.googleapis.com/google.protobuf.StringValue"
@@ -35,7 +35,7 @@ static_resources:
                             }
                         vm_config:
                           runtime: "envoy.wasm.runtime.v8"
-                          vm_id: "my_vm_id"
+                          vm_id: "modsecurity-filter-vm"
                           code:
                             local:
                               filename: "./bin/modsecurity-filter.wasm"
