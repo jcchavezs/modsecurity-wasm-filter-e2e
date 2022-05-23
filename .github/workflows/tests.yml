@@ -9,7 +9,7 @@ on:
   pull_request:
 
 jobs:
-  build-wasm-module:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout"
@@ -17,35 +17,27 @@ jobs:
         with:
           submodules: recursive
 
-      - name: "Retriving modsecurity-wasm-filter hash"
-        # Cache's key based on the modesecurity-wasm-filter repo, it should lead to
-        # rebuild the wasm module only if there are updates on that repo.
-        run: echo "CACHE_MODSEC_WASM_FILTER_HASH=${{ hashFiles('modsecurity-wasm-filter/**') }}" >> $GITHUB_ENV
-
-      - name: "Attempts to restore cache"
-        id: cache-wasm-bin
-        uses: actions/cache@v3
-        with:
-          path: |
-            build/
-          key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
+      # In this step, this action saves a list of existing images,
+      # the cache is created without them in the post run.
+      # It also restores the cache if it exists.
+      - uses: satackey/action-docker-layer-caching@v0.0.11
+        # Ignore the failure of a step and avoid terminating the job.
+        continue-on-error: true
 
       - name: "Build wasm module"
-        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
 
       - name: "Cache generated .wasm file"
-        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
         uses: actions/cache@v3
         with:
           path: |
             build/
-          key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
+          key: wasm-module-build-${{ github.sha }}
 
   e2e-test:
     runs-on: ubuntu-latest
-    needs: build-wasm-module
+    needs: build
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
@@ -61,15 +53,36 @@ jobs:
         with:
           path: |
             build/
-          key: wasm-module-build-${{ hashFiles('modsecurity-wasm-filter/**') }}
+          key: wasm-module-build-${{ github.sha }}
 
       - name: "Spin up server and envoy"
         shell: bash
         run: |
-          docker run --rm -d -p 8000:10080 jcchavezs/httpmole -response-status=200 &
           func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:debug &
 
       - name: "Run tests"
         shell: bash
         run: |
           ./tests.sh
+
+  publish:
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    needs: e2e-test
+    steps:
+      # In this step, this action saves a list of existing images,
+      # the cache is created without them in the post run.
+      # It also restores the cache if it exists.
+      - uses: satackey/action-docker-layer-caching@v0.0.11
+        # Ignore the failure of a step and avoid terminating the job.
+        continue-on-error: true
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: "Push WASM plugin"
+        shell: bash
+        run: make push-wasm-plugin
