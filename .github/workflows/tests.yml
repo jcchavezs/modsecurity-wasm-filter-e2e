@@ -80,7 +80,7 @@ jobs:
             build/
           key: wasm-module-build-${{ github.sha }}
 
-      - name: "Spin up local server and envoy"
+      - name: "Spin up envoy"
         shell: bash
         run: |
           func-e run -c envoy-config.yaml --log-level info --component-log-level wasm:debug &
