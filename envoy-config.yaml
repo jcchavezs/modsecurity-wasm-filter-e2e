@@ -38,7 +38,7 @@ static_resources:
                           vm_id: "modsecurity-filter-vm"
                           code:
                             local:
-                              filename: "./bin/modsecurity-filter.wasm"
+                              filename: "./build/modsecurity-filter.wasm"
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
