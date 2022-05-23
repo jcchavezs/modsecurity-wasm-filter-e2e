@@ -53,7 +53,7 @@ jobs:
       # See https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md    
         run: |
           export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./bin/modsecurity-filter.wasm
+          docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./build/modsecurity-filter.wasm
           docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
 
       - name: "Build wasm module"
