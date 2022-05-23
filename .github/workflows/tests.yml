@@ -21,13 +21,13 @@ jobs:
         # Cache's key based on the modesecurity-wasm-filter repo, it should lead to
         # rebuild the wasm module only if there are updates on that repo.
         run: echo "CACHE_MODSEC_WASM_FILTER_HASH=${{ hashFiles('modsecurity-wasm-filter/**') }}" >> $GITHUB_ENV
-        
+
       - name: "Attempts to restore cache"
         id: cache-wasm-bin
         uses: actions/cache@v3
         with:
           path: |
-            bin/
+            build/
           key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
 
       - name: "Build wasm module"
@@ -35,15 +35,15 @@ jobs:
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
 
-      - name: "Cache generated .wasm file"  
+      - name: "Cache generated .wasm file"
         if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
         uses: actions/cache@v3
         with:
           path: |
-            bin/
+            build/
           key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
 
-  e2e-tests:
+  e2e-test:
     runs-on: ubuntu-latest
     needs: build-wasm-module
     steps:
@@ -55,12 +55,12 @@ jobs:
       - name: "Install func-e"
         shell: bash
         run: curl https://func-e.io/install.sh | bash -s -- -b /usr/local/bin
-      
+
       - name: "Restore the wasm files cache"
         uses: actions/cache@v3
         with:
           path: |
-            bin/
+            build/
           key: wasm-module-build-${{ hashFiles('modsecurity-wasm-filter/**') }}
 
       - name: "Spin up server and envoy"
