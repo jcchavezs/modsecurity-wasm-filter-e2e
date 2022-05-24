@@ -1,6 +1,6 @@
 IMAGE_NAME=jcchavezs/modsecurity-wasm-filter
 IMAGE_VERSION?=latest
-EXTRACT_CONTAINER_NAME=$(IMAGE_NAME)-extract
+EXTRACT_CONTAINER_NAME=modsecurity-wasm-filter-extract
 
 build-wasm-plugin:
 	sed -i 's/envoy-wasm-modsecurity-dynamic/envoy-wasm-modsecurity/' modsecurity-wasm-filter/wasmplugin/Dockerfile
