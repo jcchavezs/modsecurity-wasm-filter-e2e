@@ -24,16 +24,16 @@ jobs:
         # Ignore the failure of a step and avoid terminating the job.
         continue-on-error: true
 
-      - name: "Build wasm module"
-        shell: bash
-        run: make build-wasm-plugin extract-wasm-plugin
-
       - name: "Cache generated .wasm file"
         uses: actions/cache@v3
         with:
           path: |
             build/
           key: wasm-module-build-${{ github.sha }}
+
+      - name: "Build wasm module"
+        shell: bash
+        run: make build-wasm-plugin extract-wasm-plugin
 
   e2e-test:
     runs-on: ubuntu-latest
