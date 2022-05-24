@@ -33,7 +33,7 @@ jobs:
         with:
           path: |
             build/
-          key: wasm-module-build-${{ env.CACHE_MODSEC_WASM_FILTER_HASH }}
+          key: wasm-module-build-${{ github.sha }}
       
       # https://github.com/docker/login-action#github-container-registry
       - name: Login to GitHub Container Registry
