@@ -122,11 +122,11 @@ jobs:
 
 # e2e-istio-tests are based on deploying the WASM module inside a Kind cluster with Istio installed
 # and test it in front of a nginx dummy application.
-  e2e-istio-tests:
+  e2e-istio-test:
     runs-on: ubuntu-latest
     permissions:
       packages: read 
-    needs: build-wasm-module
+    needs: build
     steps:
       - name: "Checkout"
         uses: actions/checkout@v2
