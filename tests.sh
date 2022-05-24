@@ -3,7 +3,7 @@
 step=1
 total_steps=3
 max_retries=10 #seconds for the server reachability timeout
-application_url="http://localhost:8000"
+health_url="http://localhost:8001"
 envoy_url_unfiltered="http://localhost:8001/home"
 envoy_url_filtered="http://localhost:8001/admin"
 
@@ -11,12 +11,12 @@ envoy_url_filtered="http://localhost:8001/admin"
 echo "[$step/$total_steps] Testing application reachability"
 status_code="000"
 while [[ "$status_code" -eq "000" ]]; do
-  status_code=$(curl --write-out "%{http_code}" --silent --output /dev/null $application_url)
+  status_code=$(curl --write-out "%{http_code}" --silent --output /dev/null $health_url)
   sleep 1
-  echo -ne "[Wait] Waiting for response from $application_url. Timeout: ${max_retries}s   \r"
+  echo -ne "[Wait] Waiting for response from $health_url. Timeout: ${max_retries}s   \r"
   ((max_retries-=1))
   if [[ "$max_retries" -eq 0 ]] ; then
-    echo "[Fail] Timeout waiting for response from $application_url, make sure the server is running."
+    echo "[Fail] Timeout waiting for response from $health_url, make sure the server is running."
     exit 1
   fi
 done
