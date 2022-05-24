@@ -87,7 +87,7 @@ jobs:
 
       - name: "Run local tests"
         env:
-          APPLICATION_URL: "http://localhost:8000"
+          HEALTH_URL: "http://localhost:8001"
           REQ_UNFILTERED: "http://localhost:8001/home"
           REQ_FILTERED: "http://localhost:8001/admin"
         shell: bash
@@ -182,7 +182,7 @@ jobs:
       # the IP is the one provided by metallb, for more flexibility it may be retrieved via:
       # echo $(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}
         env:
-          APPLICATION_URL: "http://172.18.0.100/nginx"
+          HEALTH_URL: "http://172.18.0.100/nginx"
           REQ_UNFILTERED: "http://172.18.0.100/nginx"
           REQ_FILTERED: "http://172.18.0.100/admin"
         shell: bash
