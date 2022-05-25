@@ -34,7 +34,11 @@ jobs:
           path: |
             build/
           key: wasm-module-build-${{ github.sha }}
-      
+
+      - name: "Build wasm module"
+        shell: bash
+        run: make build-wasm-plugin extract-wasm-plugin
+
       # https://github.com/docker/login-action#github-container-registry
       - name: Login to GitHub Container Registry
         if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
@@ -55,10 +59,6 @@ jobs:
           export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
           docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./build/modsecurity-filter.wasm
           docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
-
-      - name: "Build wasm module"
-        shell: bash
-        run: make build-wasm-plugin extract-wasm-plugin
 
   e2e-local-test:
     runs-on: ubuntu-latest
