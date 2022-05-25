@@ -95,7 +95,7 @@ jobs:
           ./tests.sh
 
   publish:
-    if: ${{ github.event_name == 'push' }}
+    if: ${{ github.event_name == 'push' && github.event.pull_request.head.repo.full_name == 'jcchavezs/modsecurity-wasm-filter-e2e' }}
     runs-on: ubuntu-latest
     needs: e2e-local-test
     steps:
