@@ -7,7 +7,7 @@ spec:
   selector:
     matchLabels:
       app: nginx
-  url: oci://ghcr.io/{{GITHUB_REPOSITORY_OWNER}}/modsecurity-filter:latest
+  url: oci://jcchavezs/modsecurity-filter:latest
   imagePullPolicy: IfNotPresent
   imagePullSecret: private-registry-pull-secret
   phase: AUTHZ

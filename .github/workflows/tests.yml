@@ -14,7 +14,7 @@ jobs:
     # write permission needed to upload the wasm to ghcr
     # Write permission must be also added via Package settings -> Manage Actions access
     permissions:
-      packages: write 
+      packages: write
     steps:
       - name: "Checkout"
         uses: actions/checkout@v3
@@ -38,27 +38,6 @@ jobs:
       - name: "Build wasm module"
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
-
-      # https://github.com/docker/login-action#github-container-registry
-      - name: Login to GitHub Container Registry
-        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload of WASM-WAF to GHCR
-        if: steps.cache-wasm-bin.outputs.cache-hit != 'true'
-        env:
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-      # Built it's compact variant and push it to ghcr.io
-      # See https://github.com/tetratelabs/proxy-wasm-go-sdk/blob/main/Makefile#L62
-      # See https://github.com/solo-io/wasm/blob/master/spec/spec-compat.md    
-        run: |
-          export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          docker build -t "ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter" . -f wasm-image.Dockerfile --build-arg WASM_BINARY_PATH=./build/modsecurity-filter.wasm
-          docker push ghcr.io/$GITHUB_REPOSITORY_OWNER_LC/modsecurity-filter:latest
 
   e2e-local-test:
     runs-on: ubuntu-latest
@@ -94,6 +73,79 @@ jobs:
         run: |
           ./tests.sh
 
+  # e2e-istio-tests are based on deploying the WASM module inside a Kind cluster with Istio installed
+  # and test it in front of a nginx dummy application.
+  e2e-istio-test:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: read
+    needs: build
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      # In this step, this action saves a list of existing images,
+      # the cache is created without them in the post run.
+      # It also restores the cache if it exists.
+      - uses: satackey/action-docker-layer-caching@v0.0.11
+        continue-on-error: false
+
+      - name: Install Kind
+        shell: bash
+        run: |
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.12.0/kind-linux-amd64
+          sudo mv ./kind /usr/bin/kind
+
+      - name: Install istioctl
+        shell: bash
+        run: |
+          curl -sL https://istio.io/downloadIstioctl | sh -
+
+      - name: Create Kind cluster
+        # kubectl is already installed on the Github Ubuntu worker
+        run: |
+          kind create cluster --config=./kind-istio/kind-config.yaml
+          kubectl scale deployment --replicas 1 coredns --namespace kube-system
+
+      - name: Load local image
+        run: kind load docker-image jcchavezs/modsecurity-filter:latest
+
+      - name: Install Istio
+        # install istio default (no egress)
+        # adds label to inject the sidecars inside default ns
+        run: |
+          yes | $HOME/.istioctl/bin/istioctl install --set profile=default
+          kubectl label namespace default istio-injection=enabled --overwrite
+
+      # metallb will provide an EXTERNAL_IP (taken from metallb-configmap) to the ingress gateway
+      - name: Install metallb
+        run: |
+          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
+          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
+          kubectl apply -f ./kind-istio/metallb-configmap.yaml
+
+      - name: Deploy nginx and Gateway
+        run: |
+          kubectl apply -f ./kind-istio/workload/deploy-nginx.yaml
+          kubectl apply -f ./kind-istio/workload/istio-gateway.yaml
+
+      - name: Deploy WASM-WAF
+        run: kubectl apply -f kind-istio/workload/deploy-waf.yaml
+
+      - name: "Run WAF on istio tests"
+        # the IP is the one provided by metallb, for more flexibility it may be retrieved via:
+        # echo $(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}
+        env:
+          HEALTH_URL: "http://172.18.0.100/nginx"
+          REQ_UNFILTERED: "http://172.18.0.100/nginx"
+          REQ_FILTERED: "http://172.18.0.100/admin"
+        shell: bash
+        run: |
+          ./warmup-tests.sh
+          ./tests.sh
+
   publish:
     if: ${{ github.event_name == 'push' && github.event.pull_request.head.repo.full_name == 'jcchavezs/modsecurity-wasm-filter-e2e' }}
     runs-on: ubuntu-latest
@@ -108,7 +160,7 @@ jobs:
       # It also restores the cache if it exists.
       - uses: satackey/action-docker-layer-caching@v0.0.11
         # Ignore the failure of a step and avoid terminating the job.
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Login to DockerHub
         uses: docker/login-action@v2
@@ -119,73 +171,3 @@ jobs:
       - name: "Push WASM plugin"
         shell: bash
         run: make push-wasm-plugin
-
-# e2e-istio-tests are based on deploying the WASM module inside a Kind cluster with Istio installed
-# and test it in front of a nginx dummy application.
-  e2e-istio-test:
-    runs-on: ubuntu-latest
-    permissions:
-      packages: read 
-    needs: build
-    steps:
-      - name: "Checkout"
-        uses: actions/checkout@v2
-        with:
-          submodules: recursive
-      
-      - name: Install Kind
-        shell: bash
-        run: |
-          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.12.0/kind-linux-amd64
-          sudo mv ./kind /usr/bin/kind 
-      
-      - name: Install istioctl
-        shell: bash
-        run: |
-          curl -sL https://istio.io/downloadIstioctl | sh -
-
-      - name: Create Kind cluster
-      # kubectl is already installed on the Github Ubuntu worker
-        run: |
-          kind create cluster --config=./kind-istio/kind-config.yaml
-          kubectl scale deployment --replicas 1 coredns --namespace kube-system
-
-      - name: Install Istio
-        # install istio default (no egress)
-        # adds label to inject the sidecars inside default ns
-        run: |   
-          yes | $HOME/.istioctl/bin/istioctl install --set profile=default
-          kubectl label namespace default istio-injection=enabled --overwrite
-
-      # metallb will provide an EXTERNAL_IP (taken from metallb-configmap) to the ingress gateway
-      - name: Install metallb
-        run: |   
-          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/namespace.yaml
-          kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.12.1/manifests/metallb.yaml
-          kubectl apply -f ./kind-istio/metallb-configmap.yaml
-
-      - name: Deploy nginx and Gateway
-        run: |   
-          kubectl apply -f ./kind-istio/workload/deploy-nginx.yaml
-          kubectl apply -f ./kind-istio/workload/istio-gateway.yaml
-
-      - name: Deploy WASM-WAF
-        env:
-          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
-        # sed replaces the {{GITHUB_REPOSITORY_OWNER}} placeholder with the current repository owner (mandatory lower case)
-        run: |
-          export GITHUB_REPOSITORY_OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')
-          sed -i "s/{{GITHUB_REPOSITORY_OWNER}}/$GITHUB_REPOSITORY_OWNER_LC/" kind-istio/workload/deploy-waf.yaml  
-          kubectl apply -f kind-istio/workload/deploy-waf.yaml
-
-      - name: "Run WAF on istio tests"
-      # the IP is the one provided by metallb, for more flexibility it may be retrieved via:
-      # echo $(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}
-        env:
-          HEALTH_URL: "http://172.18.0.100/nginx"
-          REQ_UNFILTERED: "http://172.18.0.100/nginx"
-          REQ_FILTERED: "http://172.18.0.100/admin"
-        shell: bash
-        run: |
-          ./warmup-tests.sh
-          ./tests.sh
