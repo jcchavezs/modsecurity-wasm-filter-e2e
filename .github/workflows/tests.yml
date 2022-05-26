@@ -39,6 +39,9 @@ jobs:
         shell: bash
         run: make build-wasm-plugin extract-wasm-plugin
 
+      - run: |
+          docker images
+  #          docker image tag jcchavezs/modsecurity-filter:latest jcchavezs/modsecurity-filter:${{ github.sha }}
   e2e-local-test:
     runs-on: ubuntu-latest
     needs: build
@@ -110,7 +113,9 @@ jobs:
           kubectl scale deployment --replicas 1 coredns --namespace kube-system
 
       - name: Load local image
-        run: kind load docker-image jcchavezs/modsecurity-filter:latest
+        run: |
+          docker images
+          kind load docker-image jcchavezs/modsecurity-filter:latest
 
       - name: Install Istio
         # install istio default (no egress)
