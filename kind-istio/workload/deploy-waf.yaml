@@ -7,7 +7,7 @@ spec:
   selector:
     matchLabels:
       app: nginx
-  url: oci://jcchavezs/modsecurity-filter:latest
+  url: oci://jcchavezs/modsecurity-wasm-filter:latest
   imagePullPolicy: IfNotPresent
   imagePullSecret: private-registry-pull-secret
   phase: AUTHZ
