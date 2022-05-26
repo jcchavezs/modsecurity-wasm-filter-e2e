@@ -1,0 +1,16 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: wasmplugin-waf
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  url: oci://jcchavezs/modsecurity-wasm-filter:latest
+  imagePullPolicy: IfNotPresent
+  imagePullSecret: private-registry-pull-secret
+  phase: AUTHZ
+  priority: 10
+  pluginConfig:
+    rules: "SecDebugLogLevel 5 \nSecDebugLog modsec.log \nSecRuleEngine On \nSecRule REQUEST_URI \"@streq /admin\" \"id:101,phase:1,t:lowercase,deny\""

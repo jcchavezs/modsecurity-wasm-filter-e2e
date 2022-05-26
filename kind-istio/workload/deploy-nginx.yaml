@@ -1,0 +1,44 @@
+##################################################################################################
+# nginx dummy deployment
+##################################################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-svc
+  labels:
+    app: nginx
+    service: nginx-svc
+spec:
+  ports:
+  - port: 8080
+    targetPort: 80
+    name: http
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-v1
+  labels:
+    app: nginx
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: nginx
+        version: v1
+    spec:
+      containers:
+      - name: nginx
+        image: nginx
+        ports:
+        - containerPort: 80
+---
