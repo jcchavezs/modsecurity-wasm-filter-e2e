@@ -11,10 +11,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # write permission needed to upload the wasm to ghcr
-    # Write permission must be also added via Package settings -> Manage Actions access
-    permissions:
-      packages: write
     steps:
       - name: "Checkout"
         uses: actions/checkout@v3
